@@ -1,0 +1,41 @@
+trigger:  
+  branches:  
+    include:  
+      - master  
+  
+variables:  
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.'  
+  PYTHON_VERSION: '3.11'  
+  AZURE_FUNCTIONAPP_NAME: 'splunk-llm-poc-3'
+  RELEASE_NAME: 'release.zip'
+  
+pool:  
+  vmImage: 'ubuntu-latest'  
+  
+stages:  
+- stage: Build  
+  jobs:  
+  - job: Build  
+    steps:  
+    - task: UsePythonVersion@0  
+      inputs:  
+        versionSpec: '$(PYTHON_VERSION)'  
+        addToPath: true  
+  
+    - script: |  
+        python -m pip install --upgrade pip  
+        pip install -r requirements.txt --target=".python_packages/lib/site-packages"  
+      displayName: 'Resolve Project Dependencies Using Pip'  
+ 
+    - script: zip -r $(RELEASE_NAME) ./ -x '*.git*'  
+      displayName: 'Zip artifact for deployment'
+
+    - script: |  
+        curl -X POST -u $userName:$userPWD --data-binary "@$RELEASE_NAME" "https://$AZURE_FUNCTIONAPP_NAME.scm.azurewebsites.net/api/zipdeploy" -H "Content-Type: application/zip"  
+      env: 
+        userName: $(username) #saved as secret variable
+        userPWD: $(password) #saved as secret variable
+      displayName: 'Deploy to Azure Function App using curl'  
+      
+
+  
